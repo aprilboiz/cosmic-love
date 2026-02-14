@@ -1,14 +1,615 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Love</title>
+    <title>Hành Trình Vũ Trụ</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Dancing+Script:wght@700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --neon-pink: #ff00cc;
+            --cyber-blue: #00d2ff;
+            --golden-glow: #ffd700;
+            --space-black: #050505;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--space-black);
+            font-family: 'Orbitron', sans-serif;
+            color: white;
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            transition: opacity 1.5s ease, transform 1.5s ease;
+        }
+
+        .ui-layer.hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transform: scale(0.9);
+            display: none !important;
+        }
+
+        .active-ui {
+            pointer-events: auto;
+        }
+
+        /* Intro */
+        #intro-ui h1 {
+            font-size: clamp(2rem, 8vw, 4rem);
+            text-transform: uppercase;
+            letter-spacing: 12px;
+            color: var(--cyber-blue);
+            text-shadow: 0 0 20px var(--cyber-blue);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .btn {
+            background: rgba(0, 210, 255, 0.1);
+            border: 2px solid var(--cyber-blue);
+            color: var(--cyber-blue);
+            padding: 1rem 3rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+            pointer-events: auto;
+        }
+
+        .btn:hover {
+            background: var(--cyber-blue);
+            color: var(--space-black);
+            box-shadow: 0 0 30px var(--cyber-blue);
+            transform: scale(1.05);
+        }
+
+        /* HUD */
+        #hud-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 20px solid transparent;
+            border-image: linear-gradient(to bottom right, var(--cyber-blue), transparent, var(--cyber-blue)) 1;
+            box-sizing: border-box;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+            opacity: 0;
+            transition: opacity 1s ease;
+            z-index: 5;
+        }
+
+        #hud-container.visible {
+            opacity: 1;
+        }
+
+        .hud-scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 6;
+        }
+
+        .hud-stats {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.8rem;
+            color: var(--cyber-blue);
+            text-shadow: 0 0 5px var(--cyber-blue);
+        }
+
+        #hud-message {
+            font-size: 1rem;
+            color: var(--cyber-blue);
+            text-align: center;
+            animation: blink 0.8s infinite alternate;
+        }
+
+        @keyframes blink {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0.4;
+            }
+        }
+
+        /* Decoding Image (Now visible and prominent) */
+        #decoding-ui {
+            background: rgba(5, 5, 5, 0.8);
+        }
+
+        .scanning-frame {
+            width: 320px;
+            height: 320px;
+            position: relative;
+            border: 2px solid var(--cyber-blue);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.3);
+            margin-bottom: 2rem;
+        }
+
+        #target-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: grayscale(100%) blur(10px);
+            transition: filter 3s ease-out, opacity 1s ease-out;
+            opacity: 0.7;
+        }
+
+        .scan-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--cyber-blue);
+            box-shadow: 0 0 20px var(--cyber-blue);
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0;
+            }
+
+            100% {
+                top: 100%;
+            }
+        }
+
+        /* Wishes UI (Auto-typing verses) */
+        #wishes-ui {
+            background: rgba(5, 5, 5, 0.95);
+            backdrop-filter: blur(15px);
+        }
+
+        #wish-text-area {
+            font-family: 'Dancing Script', cursive;
+            font-size: 2.2rem;
+            color: var(--neon-pink);
+            text-align: center;
+            width: 80%;
+            max-width: 800px;
+            height: 150px;
+            text-shadow: 0 0 15px var(--neon-pink);
+        }
+
+        /* Tree UI */
+        #tree-ui {
+            justify-content: flex-end;
+            padding-bottom: 5rem;
+        }
+
+        #tree-ui h2 {
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            color: var(--neon-pink);
+            text-shadow: 0 0 30px var(--neon-pink);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .btn-pink {
+            border-color: var(--neon-pink);
+            color: var(--neon-pink);
+            background: rgba(255, 0, 204, 0.05);
+        }
+
+        /* Reward */
+        #reward-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.98);
+            border: 2px solid var(--golden-glow);
+            padding: 4rem;
+            text-align: center;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.4);
+        }
+
+        #reward-text {
+            font-family: 'Dancing Script', cursive;
+            font-size: 3rem;
+            color: var(--golden-glow);
+            margin: 2rem 0;
+        }
+    </style>
 </head>
+
 <body>
+
+    <div id="canvas-container"></div>
+    <div class="hud-scanline"></div>
+
+    <!-- UI LAYERS -->
+    <div id="intro-ui" class="ui-layer active-ui">
+        <h1>HÀNH TRÌNH TÌNH YÊU VŨ TRỤ</h1>
+        <button id="launch-btn" class="btn">BẮT ĐẦU NHIỆM VỤ</button>
+    </div>
+
+    <div id="hud-container">
+        <div class="hud-stats">
+            <div>HỆ THỐNG: TITAN-V<br>ĐIỂM ĐẾN: TÂM HỒN TỎA SÁNG<br>TRẠNG THÁI: TÌNH YÊU NỒNG CHÁY</div>
+            <div style="text-align: right;">MỤC TIÊU: LÕI TINH VÂN TRÁI TIM<br>KHOẢNG CÁCH: 0.01 LY<br>NHIÊN LIỆU: VÔ
+                TẬN</div>
+        </div>
+        <div id="hud-message">ĐANG CHỜ LỆNH KHỞI ĐỘNG...</div>
+    </div>
+
+    <!-- Scene 3: Decoding -->
+    <div id="decoding-ui" class="ui-layer hidden">
+        <h2 style="color: var(--cyber-blue); letter-spacing: 6px; margin-bottom: 2rem;">ĐANG GIẢI MÃ ĐIỂM ĐẾN...</h2>
+        <div class="scanning-frame">
+            <img id="target-image"
+                src="https://scontent.fsgn8-3.fna.fbcdn.net/v/t39.30808-6/606719103_2417173235407279_2748232343816898144_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeHHxG3HjGkE-zcTACnZlxrRB9en-u-awwYH16f675rDBiOI5D1_3NhvvPriwiq5nMfp7X0Z15__B-mxk4ptEwFj&_nc_ohc=fnt21x_IWr4Q7kNvwFfuqgu&_nc_oc=Adl9Mc2rXr6AciUU1fIa3taYpMpU1fB2pVltCHPs1Gn47GAWIdgpqOJJrzvvh4ITafM5BUgT0a_LhQirJgWoShGi&_nc_zt=23&_nc_ht=scontent.fsgn8-3.fna&_nc_gid=WXSG87b1_QlTmX6nxV8X-g&oh=00_Afu0MtTdsI65wijSZknC0Z5d0qHuHm9Okz50dYAfyNKmdQ&oe=699592AB"
+                alt="Destination">
+            <div class="scan-bar"></div>
+        </div>
+        <div id="progress-bar"
+            style="width: 320px; height: 6px; background: rgba(255,255,255,0.1); border: 1px solid var(--cyber-blue);">
+            <div id="progress-fill"
+                style="height: 100%; width: 0%; background: var(--cyber-blue); box-shadow: 0 0 20px var(--cyber-blue);">
+            </div>
+        </div>
+    </div>
+
+    <!-- Scene 3.5: Wishes -->
+    <div id="wishes-ui" class="ui-layer hidden">
+        <div id="wish-text-area"></div>
+        <button id="proceed-to-tree-btn" class="btn btn-pink" style="margin-top: 3rem; display: none;">TIẾN TỚI CÂY VŨ
+            TRỤ</button>
+    </div>
+
+    <div id="tree-ui" class="ui-layer hidden">
+        <h2 id="final-wish-display"></h2>
+        <button id="pray-btn" class="btn btn-pink">NHẬN QUÀ</button>
+    </div>
+
+    <div id="reward-modal">
+        <h2 style="color: var(--golden-glow); letter-spacing: 4px;">ĐÃ NHẬN ĐƯỢC PHƯỚC LÀNH</h2>
+        <div id="reward-text">Bạn nhận được một buổi hẹn hò lãng mạn!</div>
+        <button onclick="location.reload()" class="btn" style="font-size: 0.8rem; padding: 0.5rem 1.5rem;">KHỞI ĐẦU
+            MỚI</button>
+    </div>
+
     <script>
-        // Other JavaScript code
-        const rwd = ["Một ly trà sữa (tự chọn hãng)", "Một phần mỳ cay", "Một nụ hôn đậm sâu", "Một cái ôm đậm sâu", "Bao hàu ăn Vũng Tàu", "Anni tới đi ăn fine-dining", "Một trăm nghìn đồng Việt Nam", "Đi nắc tiếp"];
+        // --- THREE.JS CONFIG ---
+        let scene, camera, renderer, starSystem, planets = [], soulTree, fireflies;
+        let starVelocity = 0.5;
+        let cameraTargetPos = new THREE.Vector3(0, 0, 100);
+        let cameraTargetLook = new THREE.Vector3(0, 0, 0);
+
+        const container = document.getElementById('canvas-container');
+        const clock = new THREE.Clock();
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.z = 100;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            const pLight = new THREE.PointLight(0x00d2ff, 2, 2000);
+            pLight.position.set(200, 200, 200);
+            scene.add(pLight);
+
+            createStarfield();
+            animate();
+        }
+
+        function createStarfield() {
+            const count = 25000;
+            const geom = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            for (let i = 0; i < count * 3; i += 3) {
+                pos[i] = (Math.random() - 0.5) * 6000;
+                pos[i + 1] = (Math.random() - 0.5) * 6000;
+                pos[i + 2] = (Math.random() - 0.5) * 6000;
+            }
+            geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            starSystem = new THREE.Points(geom, new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, transparent: true, blending: THREE.AdditiveBlending }));
+            scene.add(starSystem);
+        }
+
+        // --- TITAN FRACTAL TREE ---
+        function createTitanTree() {
+            soulTree = new THREE.Group();
+            const trunkPositions = [];
+            const leafPositions = [];
+
+            function growTitanBranch(start, dir, length, thickness, depth) {
+                const end = start.clone().add(dir.clone().multiplyScalar(length));
+
+                // Denser trunk
+                const steps = Math.floor(length * 4);
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const p = start.clone().lerp(end, t);
+                    // Add volume to the trunk
+                    const vCount = Math.floor(thickness * 1.5);
+                    for (let v = 0; v < vCount; v++) {
+                        const jitter = thickness * Math.pow(Math.random(), 0.5);
+                        const angle = Math.random() * Math.PI * 2;
+                        trunkPositions.push(
+                            p.x + Math.cos(angle) * jitter,
+                            p.y + (Math.random() - 0.5) * 2,
+                            p.z + Math.sin(angle) * jitter
+                        );
+                    }
+                }
+
+                if (depth <= 0) {
+                    // Massive leaf clusters
+                    for (let i = 0; i < 200; i++) {
+                        const r = 25 * Math.random();
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.random() * Math.PI;
+                        leafPositions.push(
+                            end.x + r * Math.sin(phi) * Math.cos(theta),
+                            end.y + r * Math.sin(phi) * Math.sin(theta),
+                            end.z + r * Math.cos(phi)
+                        );
+                    }
+                    return;
+                }
+
+                const branches = 2 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < branches; i++) {
+                    const nextDir = dir.clone().applyAxisAngle(
+                        new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
+                        0.4 + Math.random() * 0.4
+                    );
+                    growTitanBranch(end, nextDir, length * 0.8, thickness * 0.65, depth - 1);
+                }
+            }
+
+            // High depth for massive scale
+            growTitanBranch(new THREE.Vector3(0, -250, 0), new THREE.Vector3(0, 1, 0), 120, 25, 6);
+
+            const tGeom = new THREE.BufferGeometry();
+            tGeom.setAttribute('position', new THREE.Float32BufferAttribute(trunkPositions, 3));
+            soulTree.add(new THREE.Points(tGeom, new THREE.PointsMaterial({ color: 0x00d2ff, size: 1.2, transparent: true, blending: THREE.AdditiveBlending })));
+
+            const lGeom = new THREE.BufferGeometry();
+            lGeom.setAttribute('position', new THREE.Float32BufferAttribute(leafPositions, 3));
+            const colors = [0xff00cc, 0xffd700, 0xffffff, 0x00d2ff];
+            colors.forEach(c => {
+                soulTree.add(new THREE.Points(lGeom, new THREE.PointsMaterial({ color: c, size: 2, transparent: true, blending: THREE.AdditiveBlending, opacity: 0.6 })));
+            });
+
+            scene.add(soulTree);
+            createTitanFireflies();
+        }
+
+        function createTitanFireflies() {
+            const count = 600;
+            const pos = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                pos[i * 3] = (Math.random() - 0.5) * 1500;
+                pos[i * 3 + 1] = (Math.random() - 0.5) * 1500;
+                pos[i * 3 + 2] = (Math.random() - 0.5) * 1500;
+            }
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            fireflies = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffff88, size: 3, transparent: true, blending: THREE.AdditiveBlending }));
+            scene.add(fireflies);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            camera.position.lerp(cameraTargetPos, 0.05);
+            camera.lookAt(cameraTargetLook);
+
+            const sPos = starSystem.geometry.attributes.position.array;
+            for (let i = 0; i < sPos.length; i += 3) {
+                sPos[i + 2] += starVelocity;
+                if (sPos[i + 2] > 3000) sPos[i + 2] = -3000;
+            }
+            starSystem.geometry.attributes.position.needsUpdate = true;
+
+            planets.forEach((p, idx) => {
+                p.position.z += starVelocity * 2.5;
+                if (p.position.z > 300) { scene.remove(p); planets.splice(idx, 1); }
+            });
+
+            if (soulTree) {
+                soulTree.rotation.y += 0.0015;
+                soulTree.children.forEach((c, i) => { if (i > 0) c.material.opacity = 0.4 + Math.sin(Date.now() * 0.0008 + i) * 0.3; });
+            }
+
+            if (fireflies) {
+                const f = fireflies.geometry.attributes.position.array;
+                for (let i = 0; i < f.length; i += 3) {
+                    f[i] += Math.sin(Date.now() * 0.0005 + i) * 0.8;
+                    f[i + 1] += Math.cos(Date.now() * 0.0007 + i) * 0.8;
+                }
+                fireflies.geometry.attributes.position.needsUpdate = true;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- FLOW CONTROLLER ---
+        const layers = {
+            intro: document.getElementById('intro-ui'),
+            hud: document.getElementById('hud-container'),
+            decoding: document.getElementById('decoding-ui'),
+            wishes: document.getElementById('wishes-ui'),
+            tree: document.getElementById('tree-ui')
+        };
+        const hudMsg = document.getElementById('hud-message');
+
+        document.getElementById('launch-btn').onclick = () => {
+            layers.intro.classList.add('hidden');
+            layers.hud.classList.add('visible');
+            hudMsg.innerText = "ĐANG KÍCH HOẠT ĐỘNG CƠ TITAN...";
+
+            const acc = setInterval(() => {
+                if (starVelocity < 120) starVelocity += 4;
+                else clearInterval(acc);
+            }, 40);
+
+            setTimeout(() => { hudMsg.innerText = "XUYÊN QUA CÁC TẦNG TINH VÂN..."; spawnPlanet(); }, 3000);
+            setTimeout(() => { hudMsg.innerText = "ĐI VÀO KHOẢNG KHÔNG LẠNH GIÁ..."; spawnPlanet(); }, 6000);
+            setTimeout(() => { hudMsg.innerText = "PHÁT HIỆN TÍN HIỆU. ĐANG PHÂN TÍCH TẦN SỐ..."; spawnPlanet(); }, 9000);
+            setTimeout(() => { hudMsg.innerText = "XUYÊN QUA VÀNH ĐAI TIỂU HÀNH TINH..."; spawnPlanet(); }, 12000);
+            setTimeout(() => {
+                starVelocity = 5;
+                hudMsg.innerText = "ĐÃ XÁC ĐỊNH NGUỒN TÍN HIỆU. ĐANG CHUẨN BỊ LUỒNG DỮ LIỆU.";
+                layers.hud.classList.remove('visible');
+                layers.decoding.classList.remove('hidden');
+                startDecodingSequence();
+            }, 15000);
+        };
+
+        function startDecodingSequence() {
+            let p = 0;
+            const fill = document.getElementById('progress-fill');
+            const img = document.getElementById('target-image');
+            const itv = setInterval(() => {
+                p += 2;
+                fill.style.width = p + '%';
+                if (p >= 50) { img.style.filter = 'grayscale(50%) blur(5px)'; img.style.opacity = "1"; }
+                if (p >= 100) {
+                    clearInterval(itv);
+                    img.style.filter = 'grayscale(0%) blur(0px)';
+                    setTimeout(() => {
+                        layers.decoding.style.transition = "opacity 2s ease"; // Slow fade out
+                        layers.decoding.classList.add('hidden');
+                        setTimeout(startWishesSequence, 2000); // Start wishes after fade
+                    }, 3000); // Wait 3s so the user can see the fully rendered photo
+                }
+            }, 60);
+        }
+
+        function startWishesSequence() {
+            layers.wishes.classList.remove('hidden');
+            layers.wishes.classList.add('active-ui');
+
+            const wishes = [
+                "Giữa ngân hà rộng lớn...",
+                "Anh đã tìm thấy một vì sao duy nhất.",
+                "Đó chính là em.",
+                "Hành trình này, dù đi đến đâu...",
+                "Thì tụi mình vẫn luôn bên nhau.",
+                "Chúc em một mùa lễ tình nhân",
+                "Ngập tràn hạnh phúc!"
+            ];
+
+            let current = 0;
+            const area = document.getElementById('wish-text-area');
+            const btn = document.getElementById('proceed-to-tree-btn');
+
+            function typeNext() {
+                if (current < wishes.length) {
+                    area.style.opacity = 0;
+                    setTimeout(() => {
+                        area.innerText = wishes[current];
+                        area.style.opacity = 1;
+                        current++;
+                        setTimeout(typeNext, 2500);
+                    }, 1000);
+                } else {
+                    btn.style.display = 'block';
+                }
+            }
+            area.style.transition = "opacity 0.8s ease";
+            typeNext();
+        }
+
+        document.getElementById('proceed-to-tree-btn').onclick = () => {
+            layers.wishes.classList.add('hidden');
+            layers.hud.classList.add('visible');
+            hudMsg.innerText = "ĐANG HẠ CÁNH XUỐNG CỐT LÕI TITAN...";
+            starVelocity = 150; // Final zip
+
+            setTimeout(() => {
+                scene.remove(starSystem);
+                createTitanTree();
+                starVelocity = 0.05;
+
+                // Camera: Epic Worm's eye view
+                cameraTargetPos.set(0, -180, 450);
+                cameraTargetLook.set(0, 150, 0);
+
+                layers.hud.classList.remove('visible');
+                layers.tree.classList.remove('hidden');
+                layers.tree.classList.add('active-ui');
+            }, 3000);
+        };
+
+        document.getElementById('pray-btn').onclick = () => {
+            confetti({ particleCount: 300, spread: 120, origin: { y: 0.5 }, colors: ['#ff00cc', '#ffd700', '#00d2ff', '#ffffff'] });
+            const rwd = ["Một ly trà sữa (tự chọn hãng)", "Một phần mỳ cay", "Một nụ hôn đậm sâu", "Một cái ôm đậm sâu", "Bao hàu ăn Vũng Tàu", "Anni tới đi ăn fine-dining", "Một trăm nghìn đồng Việt Nam", "Đi nắc tiếp"];
+            document.getElementById('reward-text').innerText = "Vũ Trụ ban tặng: " + rwd[Math.floor(Math.random() * rwd.length)];
+            document.getElementById('reward-modal').style.display = 'block';
+        };
+
+        window.onresize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+
+        init();
     </script>
 </body>
+
 </html>
