@@ -597,8 +597,33 @@
 
         document.getElementById('pray-btn').onclick = () => {
             confetti({ particleCount: 300, spread: 120, origin: { y: 0.5 }, colors: ['#ff00cc', '#ffd700', '#00d2ff', '#ffffff'] });
-            const rwd = ["Một ly trà sữa (tự chọn hãng)", "Một phần mỳ cay", "Một nụ hôn đậm sâu", "Một cái ôm đậm sâu", "Bao hàu ăn Vũng Tàu", "Anni tới đi ăn fine-dining", "Một trăm nghìn đồng Việt Nam", "Đi nắc tiếp"];
-            document.getElementById('reward-text').innerText = "Vũ Trụ ban tặng: " + rwd[Math.floor(Math.random() * rwd.length)];
+            
+            // Rewards with probabilities (weights)
+            const rwd = [
+                { reward: "Một ly trà sữa (tự chọn hãng)", weight: 25 },
+                { reward: "Một phần mỳ cay", weight: 20 },
+                { reward: "Một nụ hôn đậm sâu", weight: 15 },
+                { reward: "Một cái ôm đậm sâu", weight: 15 },
+                { reward: "Bao hàu ăn Vũng Tàu", weight: 10 },
+                { reward: "Anni tới đi ăn fine-dining", weight: 5 },
+                { reward: "Một trăm nghìn đồng Việt Nam", weight: 5 },
+                { reward: "Đi nắc tiếp", weight: 5 }
+            ];
+            
+            // Weighted random selection
+            const totalWeight = rwd.reduce((sum, item) => sum + item.weight, 0);
+            let random = Math.random() * totalWeight;
+            let selectedReward = rwd[0].reward;
+            
+            for (let i = 0; i < rwd.length; i++) {
+                random -= rwd[i].weight;
+                if (random <= 0) {
+                    selectedReward = rwd[i].reward;
+                    break;
+                }
+            }
+            
+            document.getElementById('reward-text').innerText = "Vũ Trụ ban tặng: " + selectedReward;
             document.getElementById('reward-modal').style.display = 'block';
         };
 
